@@ -148,7 +148,10 @@ def Get_fapiao_info(text_info):
     fapiao_info['fapiao_check_code'] = re.findall("校验码(\d+)", text_info)[0]
     fapiao_info['fapiao_buyer_name'] = re.findall("购买方名称(.*?)纳税人识别号", text_info)[0]
     fapiao_info['fapiao_buyer_tax_number'] = re.findall("购买方名称.*?纳税人识别号(.*?)地址", text_info)[0]
-    fapiao_info['fapiao_goods'] = re.findall("服务名称(.*?)合计规格型号", text_info)[0]
+    try:
+        fapiao_info['fapiao_goods'] = re.findall("服务名称(.*?)合计规格型号", text_info)[0]
+    except:
+        fapiao_info['fapiao_goods'] = re.findall("项目名称(.*?)合计规格型号", text_info)[0]
     fapiao_info['fapiao_s_tax_total'] = re.findall("\(大写\)(.*?)\(小写\)", text_info)[0]
     fapiao_info['fapiao_tax_total'] = re.findall("\(小写\)(\d+.\d+)", text_info)[0]
     fapiao_info['fapiao_seller_name'] = re.findall("销售方名称(.*?)纳税人识别号", text_info2)[0]
@@ -325,19 +328,25 @@ if __name__ == '__main__':
     # 判断存放目录是否存在，不存在则创建
     Is_exists(out_path, 1)
 
+    failed_files = []
     results = []
     # 获取目录下所有需要处理的文件
     file_names = Get_files(in_path, extension_name)
     for file_name in file_names:
-        From_pdf_to_png(file_name, temp_png_file)
-        ret_info = Read_QR_code(temp_png_file)
-        From_pdf_to_docx(file_name, temp_docx_file)
-        text_info = Read_docx(temp_docx_file)
+        try:
+            From_pdf_to_png(file_name, temp_png_file)
+            ret_info = Read_QR_code(temp_png_file)
+            From_pdf_to_docx(file_name, temp_docx_file)
+            text_info = Read_docx(temp_docx_file)
+
+            ret_info.update(Get_fapiao_info(text_info))
+        except:
+            failed_files.append(file_name)
+            continue
 
         if is_create_txt:
             Save_txt(text_info, temp_txt_file)
 
-        ret_info.update(Get_fapiao_info(text_info))
         #print(ret_info)
         #ret_info = {'qr_code_code': '888888888888', 'qr_code_number': '88888888', 'qr_code_total': '88.88', 'qr_code_date': '20210819', 'qr_code_check_code': '88888888888888888888', 'fapiao_code': '888888888888', 'fapiao_number': '88888888', 'fapiao_check_code': '88888888888888888888', 'fapiao_buyer_name': 'XXXX有限公司', 'fapiao_buyer_tax_number': '购买方纳税人识别号', 'fapiao_goods': '*热爱祖国*服务人民*崇尚科学*辛勤劳动*团结互助*诚实守信*遵纪守法*艰苦奋斗', 'fapiao_s_tax_total': '壹佰陆拾捌圆整', 'fapiao_tax_total': '168.00', 'fapiao_seller_name': '销售方名称', 'fapiao_seller_tax_number': '销售方纳税人识别号', 'fapiao_address_phone': '销售方地址、电话', 'fapiao_bank_name': '销售方开户行及账号'}
 
@@ -347,7 +356,7 @@ if __name__ == '__main__':
             new_path = os.path.dirname(file_name.replace(in_path, out_path))
             new_file = "%s\%s.%s" % (new_path, new_file_name, extension_name)
             print(new_file)
-            ret_info['new_file'] : new_file
+            ret_info['new_file'] = new_file
             Is_exists(new_path, 1)
 
             shutil.copyfile(file_name, new_file)
@@ -363,3 +372,6 @@ if __name__ == '__main__':
         Save_xlsx(results, temp_xlsx_file)
 
     print(u'输出目录：%s' % out_path)
+    print(u'读取失败文件：')
+    for failed_file in failed_files:
+        print(failed_file)
